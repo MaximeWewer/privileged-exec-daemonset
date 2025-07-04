@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: privileged-exec-daemonset # Dedicated namespace for isolation
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: privileged-exec
+  namespace: privileged-exec-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: privileged-exec
+  template:
+    metadata:
+      labels:
+        app: privileged-exec
+    spec:
+      # Tolerate all taints to run on every node
+      tolerations:
+      - operator: Exists
+      # Share host namespaces and resources
+      hostNetwork: true # Share the host’s network
+      hostPID: true # Share the host’s PID namespace
+      hostIPC: true # Share the host’s IPC namespace
+      containers:
+      - name: privileged-exec
+        image: busybox:stable # Lightweight image with /bin/sh
+        command: [ "/bin/sh", "-c", "while true; do sleep 60; done;" ] # Keep the container running
+        securityContext:
+          privileged: true # Grant all Linux capabilities
+        volumeMounts:
+        - name: noderoot
+          mountPath: /noderoot # Mount host root at /noderoot
+      volumes:
+      - name: noderoot
+        hostPath:
+          path: / # Mount the host’s root filesystem
